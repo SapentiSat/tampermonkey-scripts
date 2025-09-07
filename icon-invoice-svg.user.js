@@ -18,7 +18,7 @@
 
   // --- stałe / utilsy ---
   const ICON_CLASS = 'suu-invoice-req';
-  const BLUE  = '#1ad2f0';   // plik sprzedaży dodany
+  const BLUE  = '#1ad2f0';   // plik sprzedaży dodany.
   const ORANGE = '#ff9900';  // wymagane, ale brak pliku.
 
   const makeIconSvg = (color) => `
