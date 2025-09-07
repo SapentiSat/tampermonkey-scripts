@@ -2,15 +2,15 @@
 // @name         Ikona SVG kiedy klient prosi o FV
 // @namespace    suuhouse.tools
 // @author       valiantsin12@gmail.com
-// @version      1.7
+// @version      2
 // @description  Gdy invoice.required===true i additionalField1 === "Dokument sprzedaży dodany" — ikona NIEBIESKA, w innym wypadku POMARAŃCZOWA.
 // @match        https://suuhouse.enterprise.sellrocket.pl/unified-orders*
 // @run-at       document-start
 // @grant        none
 // @noframes
 // @homepageURL  https://github.com/SapentiSat/tampermonkey-scripts
-// @updateURL    https://raw.githubusercontent.com/SapentiSat/tampermonkey-scripts/main/icon-invoice.user.js
-// @downloadURL  https://raw.githubusercontent.com/SapentiSat/tampermonkey-scripts/main/icon-invoice.user.js
+// @updateURL    https://raw.githubusercontent.com/SapentiSat/tampermonkey-scripts/main/icon-invoice-svg.user.js
+// @downloadURL  https://raw.githubusercontent.com/SapentiSat/tampermonkey-scripts/main/icon-invoice-svg.user.js
 // ==/UserScript==
 
 (function () {
