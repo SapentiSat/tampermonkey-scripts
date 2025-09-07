@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Ikona SVG kiedy klient prosi o FV
 // @namespace    suuhouse.tools
-// @version      1.5
+// @version      1.6
 // @author       valiantsin12@gmail.com
 // @description  Gdy invoice.required===true i additionalField1 === "Dokument sprzedaży dodany" — ikona NIEBIESKA, w innym wypadku POMARAŃCZOWA.
 // @match        https://suuhouse.enterprise.sellrocket.pl/unified-orders*
