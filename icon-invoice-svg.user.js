@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Ikona SVG kiedy klient prosi o FV
 // @namespace    suuhouse.tools
-// @version      1.6
+// @version      1.7
 // @author       valiantsin12@gmail.com
 // @description  Gdy invoice.required===true i additionalField1 === "Dokument sprzedaży dodany" — ikona NIEBIESKA, w innym wypadku POMARAŃCZOWA.
 // @match        https://suuhouse.enterprise.sellrocket.pl/unified-orders*
@@ -19,7 +19,7 @@
   // --- stałe / utilsy ---
   const ICON_CLASS = 'suu-invoice-req';
   const BLUE  = '#1ad2f0';   // plik sprzedaży dodany
-  const ORANGE = '#ff9900';  // wymagane, ale brak pliku
+  const ORANGE = '#ff9900';  // wymagane, ale brak pliku.
 
   const makeIconSvg = (color) => `
     <svg class="${ICON_CLASS}" width="30" height="30" viewBox="0 0 24 24"
