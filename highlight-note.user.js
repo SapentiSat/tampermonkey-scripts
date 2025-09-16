@@ -2,7 +2,7 @@
 // @name         Podświetl sekcję „Notatka wewnętrzna”
 // @namespace    suuhouse.tools
 // @author       valiantsin12@gmail.com
-// @version      3
+// @version      4
 // @description  Podświetla sekcję „Notatka wewnętrzna”
 // @match        https://suuhouse.enterprise.sellrocket.pl/unified-orders/*
 // @run-at       document-idle
@@ -19,7 +19,7 @@
   const style = document.createElement('style');
   style.textContent = `
     .suu-note-highlighted {
-      background: rgba(255, 0, 0, 0.15) !important; /* 50% */
+      background: rgba(255, 0, 0, 0.1) !important; /* 50% */
       outline: 2px solid rgba(255, 0, 0, 0.85);
       border-radius: 8px;
       transition: background 120ms ease-in-out, outline 120ms ease-in-out;
