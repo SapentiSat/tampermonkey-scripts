@@ -1,9 +1,9 @@
 // ==UserScript==
-// @name         Ikona SVG kiedy klient prosi o FV
+// @name         Ikona SVG: status dokumentu/FV (zielony>pomarańczowy>niebieski)
 // @namespace    suuhouse.tools
 // @author       valiantsin12@gmail.com
-// @version      3
-// @description  Gdy invoice.required===true i additionalField1 === "Dokument sprzedaży dodany" — ikona NIEBIESKA, w innym wypadku POMARAŃCZOWA.
+// @version      4
+// @description  Priorytet: 1) additionalField1 === "Dokument sprzedaży dodany" => ZIELONY; 2) invoice.required===true => POMARAŃCZOWY; 3) inaczej => NIEBIESKI.
 // @match        https://suuhouse.enterprise.sellrocket.pl/unified-orders*
 // @run-at       document-start
 // @grant        none
@@ -18,21 +18,29 @@
 
   // --- stałe / utilsy ---
   const ICON_CLASS = 'suu-invoice-req';
-  const BLUE  = '#1ad2f0';   // plik sprzedaży dodany.
-  const ORANGE = '#ff9900';  // wymagane, ale brak pliku.
+  const BLUE   = '#1ad2f0'; // brak wymagań FV i brak dokumentu
+  const ORANGE = '#ff9900'; // klient chce FV, ale dokumentu brak
+  const GREEN  = '#20c997'; // dokument sprzedaży dodany (niezależnie od invoice.required)
 
-  const makeIconSvg = (color) => `
+  const DOC_OK_TEXT = 'Dokument sprzedaży dodany';
+
+  const makeIconSvg = (color, title) => `
     <svg class="${ICON_CLASS}" width="30" height="30" viewBox="0 0 24 24"
          xmlns="http://www.w3.org/2000/svg" fill="${color}"
-         aria-hidden="true" title="Wymagana faktura/paragon"
+         aria-hidden="true" title="${title}"
          style="margin-left:4px;vertical-align:middle">
       <path d="M12,14a1,1,0,0,0-1,1v2a1,1,0,0,0,2,0V15A1,1,0,0,0,12,14Zm.38-2.92A1,1,0,0,0,11.8,11l-.18.06-.18.09-.15.12A1,1,0,0,0,11,12a1,1,0,0,0,.29.71,1,1,0,0,0,.33.21A.84.84,0,0,0,12,13a1,1,0,0,0,.71-.29A1,1,0,0,0,13,12a1,1,0,0,0-.29-.71A1.15,1.15,0,0,0,12.38,11.08ZM20,8.94a1.31,1.31,0,0,0-.06-.27l0-.09a1.07,1.07,0,0,0-.19-.28h0l-6-6h0a1.07,1.07,0,0,0-.28-.19l-.1,0A1.1,1.1,0,0,0,13.06,2H7A3,3,0,0,0,4,5V19a3,3,0,0,0,3,3H17a3,3,0,0,0,3-3V9S20,9,20,8.94ZM14,5.41,16.59,8H15a1,1,0,0,1-1-1ZM18,19a1,1,0,0,1-1,1H7a1,1,0,0,1-1-1V5A1,1,0,0,1,7,4h5V7a3,3,0,0,0,3,3h3Z"/>
     </svg>
   `.trim();
 
-  // Przechowujemy więcej niż boolean:
   // orderId -> { required: boolean, hasDoc: boolean }
   const orders = new Map();
+
+  function resolveColorAndTitle(info) {
+    if (info.hasDoc)   return { color: GREEN,  title: 'Dokument sprzedaży dodany' };
+    if (info.required) return { color: ORANGE, title: 'Klient prosi o FV / dokument wymagany' };
+    return { color: BLUE, title: 'Brak wymagań FV' };
+  }
 
   // --- UI ---
   function updateRowUI(row) {
@@ -48,19 +56,18 @@
     const container = cell.firstElementChild || cell;
     let icon = container.querySelector(`.${ICON_CLASS}`);
 
-    if (!info.required) {
-      if (icon) icon.remove();
-      return;
-    }
-
-    const color = info.hasDoc ? BLUE : ORANGE;
+    const { color, title } = resolveColorAndTitle(info);
 
     if (!icon) {
-      container.insertAdjacentHTML('beforeend', makeIconSvg(color));
-    } else if (icon.getAttribute('fill') !== color) {
-      icon.setAttribute('fill', color);
-      // dla pewności zaktualizuj też atrybut style, jeśli kiedyś byłby nadpisany
-      icon.style.fill = color;
+      container.insertAdjacentHTML('beforeend', makeIconSvg(color, title));
+    } else {
+      if (icon.getAttribute('fill') !== color) {
+        icon.setAttribute('fill', color);
+        icon.style.fill = color;
+      }
+      if (icon.getAttribute('title') !== title) {
+        icon.setAttribute('title', title);
+      }
     }
   }
 
@@ -69,7 +76,11 @@
   }
 
   // --- JSON parsowanie ---
-  const DOC_OK_TEXT = 'Dokument sprzedaży dodany';
+  function computeFlagsFromRecord(rec) {
+    const required = !!(rec?.invoice?.required);
+    const hasDoc = String(rec?.additionalField1 ?? '').trim() === DOC_OK_TEXT; // niezależne od "required"
+    return { required, hasDoc };
+  }
 
   function processOrdersListJson(json) {
     const arr = json?.list;
@@ -80,9 +91,7 @@
       const id = String(it?.id ?? '');
       if (!id) continue;
 
-      const required = !!(it?.invoice?.required);
-      const hasDoc = required && (String(it?.additionalField1 ?? '').trim() === DOC_OK_TEXT);
-
+      const { required, hasDoc } = computeFlagsFromRecord(it);
       const prev = orders.get(id);
       if (!prev || prev.required !== required || prev.hasDoc !== hasDoc) {
         orders.set(id, { required, hasDoc });
@@ -96,9 +105,7 @@
     const id = String(json?.id ?? '');
     if (!id) return;
 
-    const required = !!(json?.invoice?.required);
-    const hasDoc = required && (String(json?.additionalField1 ?? '').trim() === DOC_OK_TEXT);
-
+    const { required, hasDoc } = computeFlagsFromRecord(json);
     const prev = orders.get(id);
     if (!prev || prev.required !== required || prev.hasDoc !== hasDoc) {
       orders.set(id, { required, hasDoc });
