@@ -19,7 +19,7 @@
   const style = document.createElement('style');
   style.textContent = `
     .suu-note-highlighted {
-      background: rgba(255, 0, 0, 0.5) !important; /* 50% */
+      background: rgba(255, 0, 0, 0.3) !important; /* 50% */
       outline: 2px solid rgba(255, 0, 0, 0.85);
       border-radius: 8px;
       transition: background 120ms ease-in-out, outline 120ms ease-in-out;
