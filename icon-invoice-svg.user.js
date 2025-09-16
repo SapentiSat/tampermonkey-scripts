@@ -2,7 +2,7 @@
 // @name         Ikona SVG: status dokumentu/FV (zielony>pomarańczowy>niebieski)
 // @namespace    suuhouse.tools
 // @author       valiantsin12@gmail.com
-// @version      4.1
+// @version      4.2
 // @description  Priorytet: 1) additionalField1 === "Dokument sprzedaży dodany" => ZIELONY; 2) invoice.required===true => POMARAŃCZOWY; 3) inaczej => NIEBIESKI.
 // @match        https://suuhouse.enterprise.sellrocket.pl/unified-orders*
 // @run-at       document-start
