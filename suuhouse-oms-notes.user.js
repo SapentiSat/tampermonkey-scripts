@@ -2,7 +2,7 @@
 // @name         SUUHOUSE OMS — Notatki (popup czat)
 // @namespace    suuhouse.tools
 // @author       SapentiSat
-// @version      1.3.0
+// @version      1.3.2
 // @description  Popup z notatkami wewnętrznymi dla unified-orders/{id}
 // @match        https://suuhouse.enterprise.sellrocket.pl/unified-orders/*
 // @run-at       document-idle
@@ -24,7 +24,7 @@
   const SERVER_TOKEN = "tkA6PhLmIaHwDhtDWqoxgtIhdLqxg9xd6V5e9ByBy56gUCFiw";
   const AUTH_URL     = "https://suuhouse-smerp-api.enterprise.sellrocket.pl/api/v3/Logon/GetAuthenticatedUser";
 
-  /* ====== KONFIG UI (łatwe strojenie) ====== */
+  /* ====== KONFIG UI (łatwe strojenie__) ====== */
   // czas „pending” (żeby zobaczyć bąbelek wysyłania)
   const PENDING_MIN_MS = 1200;
   // przezroczystość tła (0..1): pending i po zapisie
