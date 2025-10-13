@@ -2,7 +2,7 @@
 // @name         SUUHOUSE OMS — Notatki (popup czat)
 // @namespace    suuhouse.tools
 // @author       SapentiSat
-// @version      1.3.3
+// @version      1.4
 // @description  Popup z notatkami wewnętrznymi dla unified-orders/{id}
 // @match        https://suuhouse.enterprise.sellrocket.pl/unified-orders/*
 // @run-at       document-idle
@@ -153,11 +153,6 @@
       qs("#sh-refresh").onclick = () => refresh();
       qs("#sh-send").onclick = () => send();
       qs("#sh-ta").addEventListener("input", counter);
-      document.addEventListener("keydown",(e)=>{
-        if(qs(".sh-notes").classList.contains("sh-hidden")) return;
-        if(e.key.toLowerCase()==="r" && !e.ctrlKey && !e.metaKey){ e.preventDefault(); refresh(); }
-        if(e.key==="Enter" && !e.shiftKey && document.activeElement===qs("#sh-ta")){ e.preventDefault(); send(); }
-      });
     }
   }
 
