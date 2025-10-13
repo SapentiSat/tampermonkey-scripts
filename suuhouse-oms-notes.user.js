@@ -21,7 +21,7 @@
 (() => {
   /* ====== KONFIG BACKEND ====== */
   const WORKER_URL   = "https://sellrocket-notes.valiantsin12.workers.dev"; // GET/POST /notes
-  const SERVER_TOKEN = "tkA6PhLmIaHwDhtDWqoxgtIhdLqxg9xd6V5e9ByBy56gUCFiw";
+  const SERVER_TOKEN = "";
   const AUTH_URL     = "https://suuhouse-smerp-api.enterprise.sellrocket.pl/api/v3/Logon/GetAuthenticatedUser";
 
   /* ====== KONFIG UI (__łatwe strojenie__) ====== */
