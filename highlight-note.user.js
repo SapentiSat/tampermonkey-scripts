@@ -2,7 +2,7 @@
 // @name         Podświetl sekcję „-Notatka wewnętrzna-”
 // @namespace    suuhouse.tools
 // @author       valiantsin12@gmail.com
-// @version      1.7
+// @version      1.8
 // @description  Podświetla sekcję „Notatka wewnętrzna”
 // @match        https://suuhouse.enterprise.sellrocket.pl/unified-orders/*
 // @run-at       document-idle
@@ -53,7 +53,7 @@
   };
 
   const clone = (o) => JSON.parse(JSON.stringify(o));
-//*---9
+//*---91
   function loadAndMerge(key, defaultsObj) {
     let saved;
     try { saved = GM_getValue(key, null); } catch { saved = null; }
