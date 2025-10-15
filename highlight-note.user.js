@@ -60,9 +60,9 @@
       NOTE_LABEL: 'Notatka wewnętrzna:',
       ENABLE_HIGHLIGHT: true,
       // wymagane (bez domyślnej)
-      OUTLINE_RGBA: null,
-      BORDER_RADIUS_PX: null,
-      TRANSITION_MS: null
+      OUTLINE_RGBA: "rgba(255, 0, 0, 0.9)",
+      BORDER_RADIUS_PX: 10,
+      TRANSITION_MS: 120
     }
   };
 
