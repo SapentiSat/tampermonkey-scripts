@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         Podświetl sekcję „-Notatka wewnętrzna-”
+// @name         Podświetl sekcję „Notatka wewnętrzna”
 // @namespace    suuhouse.tools
 // @author       valiantsin12@gmail.com
-// @version      2.0
+// @version      2.1
 // @description  Podświetla sekcję „Notatka wewnętrzna”
 // @match        https://suuhouse.enterprise.sellrocket.pl/unified-orders/*
 // @run-at       document-idle
