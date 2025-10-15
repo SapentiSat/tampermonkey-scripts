@@ -2,14 +2,14 @@
 // @name         Podświetl sekcję „-Notatka wewnętrzna-”
 // @namespace    suuhouse.tools
 // @author       valiantsin12@gmail.com
-// @version      1.5.2
+// @version      1.5.3
 // @description  Podświetla sekcję „Notatka wewnętrzna”
 // @match        https://suuhouse.enterprise.sellrocket.pl/unified-orders/*
 // @run-at       document-idle
 // @noframes
 // @icon         https://suuhouse.pl/favicon.ico
 // @homepageURL  https://github.com/SapentiSat/tampermonkey-scripts
-// @updateURL  https://raw.githubusercontent.com/SapentiSat/tampermonkey-scripts/main/Update highlight-note.user.js
+// @updateURL  https://raw.githubusercontent.com/SapentiSat/tampermonkey-scripts/main/highlight-note.user.js
 // @downloadURL  https://raw.githubusercontent.com/SapentiSat/tampermonkey-scripts/main/highlight-note.user.js
 // @grant        GM_getValue
 // @grant        GM_setValue
