@@ -9,7 +9,7 @@
 // @noframes
 // @icon         https://suuhouse.pl/favicon.ico
 // @homepageURL  https://github.com/SapentiSat/tampermonkey-scripts
-// @updateURL    https://raw.githubusercontent.com/SapentiSat/tampermonkey-scripts/main/Update highlight-note.user.js
+// @updateURL    https://raw.githubusercontent.com/SapentiSat/tampermonkey-scripts/main/highlight-note.user.js
 // @downloadURL  https://raw.githubusercontent.com/SapentiSat/tampermonkey-scripts/main/highlight-note.user.js
 // @grant        GM_getValue
 // @grant        GM_setValue
