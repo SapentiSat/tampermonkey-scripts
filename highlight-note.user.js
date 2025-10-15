@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         Podświetl sekcję „-Notatka wewnętrzna-”
-// @namespace    suuhouse.tools
+// @namespace    suuhouse.tools2
 // @author       valiantsin12@gmail.com
 // @version      1.4.2
 // @description  Podświetla sekcję „Notatka wewnętrzna”
