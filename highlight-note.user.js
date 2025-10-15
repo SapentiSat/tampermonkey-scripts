@@ -2,7 +2,7 @@
 // @name         Podświetl sekcję „Notatka wewnętrzna”
 // @namespace    suuhouse.tools
 // @author       valiantsin12@gmail.com
-// @version      1.0.0
+// @version      1.0.1
 // @description  Podświetla sekcję „Notatka wewnętrzna”
 // @match        https://suuhouse.enterprise.sellrocket.pl/unified-orders/*
 // @run-at       document-idle
@@ -14,11 +14,13 @@
 // @grant        GM_setValue
 // ==/UserScript==
 
+
+
 (function () {
   'use strict';
 
   /* =========================================================
-   *  BLOK A — CONFIG (Pamięć Tampermonkey)
+   *  BLOK A — CONFIG (Pamięć Tampermonkey-)
    *  — Jedyny blok, który edytujesz przy dodawaniu nowych zmiennych
    *  — Brak migracji; po update dodaje TYLKO brakujące pola
    *  — Nie nadpisuje istniejących wartości użytkownika
@@ -34,7 +36,7 @@
     version: 1, // na przyszłość (nie używana do migracji)
     vars: {
       // ——— edytowalne w Pamięci ———
-      BG_RGBA: 'rgba(255, 0, 0, 0.1)',      // ma domyślną
+      BG_RGBA: 'rgba(255, 0, 0, 0.12)',      // ma domyślną
       NOTE_LABEL: 'Notatka wewnętrzna:',    // ma domyślną
       ENABLE_HIGHLIGHT: true,               // ma domyślną
 
