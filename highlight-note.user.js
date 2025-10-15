@@ -2,7 +2,7 @@
 // @name         Podświetl sekcję „-Notatka wewnętrzna-”
 // @namespace    suuhouse.tools
 // @author       valiantsin12@gmail.com
-// @version      1.4.8
+// @version      1.4.9
 // @description  Podświetla sekcję „Notatka wewnętrzna”
 // @match        https://suuhouse.enterprise.sellrocket.pl/unified-orders/*
 // @run-at       document-idle
@@ -40,7 +40,8 @@
       // wymagane (bez domyślnej)
       OUTLINE_RGBA: "rgba(255, 0, 0, 0.9)",
       BORDER_RADIUS_PX: 10,
-      TRANSITION_MS: 120
+      TRANSITION_MS: 120,
+      TEST11: null
     }
   };
 
