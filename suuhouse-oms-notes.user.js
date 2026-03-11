@@ -2,8 +2,8 @@
 // @name         SUUHOUSE OMS — Notatki (popup czat)
 // @namespace    suuhouse.tools
 // @author       SapentiSat
-// @version      2.1
-// @description  Czat notatek z przesuwaniem, paletą kolorów i inteligentną obsługą błędów
+// @version      5.0
+// @description  Przesuwalny przycisk Notatek, który zapisuje pozycję! Okno zawsze nad przyciskiem.
 // @match        https://suuhouse.enterprise.sellrocket.pl/unified-orders/*
 // @run-at       document-idle
 // @grant        GM_addStyle
@@ -16,36 +16,39 @@
 // @homepageURL  https://github.com/SapentiSat/tampermonkey-scripts
 // @updateURL    https://raw.githubusercontent.com/SapentiSat/tampermonkey-scripts/main/suuhouse-oms-notes.user.js
 // @downloadURL  https://raw.githubusercontent.com/SapentiSat/tampermonkey-scripts/main/suuhouse-oms-notes.user.js
-// @require      https://gist.githubusercontent.com/SapentiSat/14e92c1c9fffde5af55a70f4da77ad1d/raw/93190fe4f865abebdf548c1fea3d5984f05fe91a/SuuCore_MenuLogsWygoda_vv.js
+// @require      https://gist.githubusercontent.com/SapentiSat/14e92c1c9fffde5af55a70f4da77ad1d/raw/3d224b9317fd09a94fdd5495aae981af0a54b95a/SuuCore_MenuLogsWygoda_vv.js
 // @connect      sellrocket-notes.valiantsin12.workers.dev
 // ==/UserScript==
 
 (() => {
   'use strict';
 
+  // Ukrywamy pływający przycisk ustawień z biblioteki
+  GM_addStyle(`div[style*="bottom: 20px"][style*="left: 20px"][style*="z-index: 999999"] { display: none !important; }`);
+
+  const Core = window.SuuCoreFactory('czat_notatek');
+
   let CFG;
   let isInitialized = false;
 
   /* =========================================================
-   * 1. INTERFEJS USTAWIEŃ (Formularz HTML dla SuuCore)
+   * 1. INTERFEJS USTAWIEŃ
    * ========================================================= */
-  const tt = SuuCore_vv.utils.createTooltip;
+  const tt = Core.utils.createTooltip;
   const SETTINGS_HTML = `
     <div style="display: flex; flex-direction: column; gap: 12px;">
       <div style="background: #fef2f2; border: 1px solid #fecaca; padding: 10px; border-radius: 6px;">
-         <label style="font-size: 12px; font-weight: bold; color: #991b1b;">Token API (Wymagany) ${tt('Sekretny klucz dostępu do bazy. Jeśli go brakuje, na ikonce pojawi się wykrzyknik.')}</label>
+         <label style="font-size: 12px; font-weight: bold; color: #991b1b;">Token API (Wymagany) ${tt('Sekretny klucz dostępu. Bez niego na górze ekranu pojawi się błąd, a na ikonce notatek wykrzyknik.')}</label>
          <input type="password" id="sh-in-token" style="width: 100%; padding: 8px; border: 1px solid #fca5a5; border-radius: 4px; margin-top: 4px; background: #fff;">
       </div>
-      
       <div>
-         <label style="font-size: 12px; font-weight: bold;">Kolor tła okna notatek ${tt('Wybierz kolor i przezroczystość tła całego czatu.')}</label>
-         <div class="suu-color-row">
-           <input type="color" id="sh-bg-hex" class="suu-color-picker">
-           <input type="range" id="sh-bg-alpha" class="suu-alpha-slider" min="0" max="1" step="0.01">
-           <span id="sh-bg-val" style="font-size: 11px; width: 30px; text-align:right;"></span>
+         <label style="font-size: 12px; font-weight: bold;">Kolor przycisku "Notatki" ${tt('Zmienia tło tylko samego przycisku włączającego czat.')}</label>
+         <div style="display:flex; align-items:center; gap:8px; margin-top:4px;">
+           <input type="color" id="sh-bg-hex" style="width:40px; height:32px; padding:0; border:1px solid #ccc; border-radius:4px; cursor:pointer;">
+           <input type="range" id="sh-bg-alpha" min="0" max="1" step="0.01" style="flex-grow:1; cursor:pointer;">
+           <span id="sh-bg-val" style="font-size: 11px; width: 35px; text-align:right;"></span>
          </div>
       </div>
-
       <div>
          <label style="font-size: 12px; font-weight: bold;">Adres Bazy (Worker URL)</label>
          <input type="text" id="sh-in-worker" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; margin-top: 4px;">
@@ -57,40 +60,36 @@
     </div>
   `;
 
-  /* =========================================================
-   * 2. INICJALIZACJA RDZENIA SUU_CORE_VV
-   * ========================================================= */
-  SuuCore_vv.init({
+  Core.init({
     scriptName: "Notatki Czat (OMS)",
     defaultVars: {
       SERVER_TOKEN: "",
-      POPUP_BG_RGBA: "rgba(15, 17, 21, 0.98)", // Domyślny ciemny kolor
+      LAUNCHER_BG_RGBA: "rgba(37, 99, 235, 1)",
       WORKER_URL: "https://sellrocket-notes.valiantsin12.workers.dev",
       AUTH_URL: "https://suuhouse-smerp-api.enterprise.sellrocket.pl/api/v3/Logon/GetAuthenticatedUser",
-      
       PENDING_MIN_MS: 1200, PENDING_BG_OPACITY: 0.30, OK_BG_OPACITY: 0.60,
       TITLE_SIZE_PX: 13, META_SIZE_PX: 11, NOTE_SIZE_PX: 17, ICON_BTN_PX: 35
     },
     settingsHTML: SETTINGS_HTML,
-    
+
     onLoadUI: (vars) => {
       document.getElementById('sh-in-token').value = vars.SERVER_TOKEN;
       document.getElementById('sh-in-worker').value = vars.WORKER_URL;
       document.getElementById('sh-in-auth').value = vars.AUTH_URL;
 
-      const bg = SuuCore_vv.utils.parseRgbaString(vars.POPUP_BG_RGBA);
+      const bg = Core.utils.parseRgbaString(vars.LAUNCHER_BG_RGBA);
       document.getElementById('sh-bg-hex').value = bg.hex;
       document.getElementById('sh-bg-alpha').value = bg.a;
       document.getElementById('sh-bg-val').textContent = Math.round(bg.a * 100) + '%';
-      
+
       document.getElementById('sh-bg-alpha').oninput = (e) => document.getElementById('sh-bg-val').textContent = Math.round(e.target.value * 100) + '%';
     },
-    
+
     onSaveUI: (vars) => {
       vars.SERVER_TOKEN = document.getElementById('sh-in-token').value.trim();
       vars.WORKER_URL = document.getElementById('sh-in-worker').value.trim();
       vars.AUTH_URL = document.getElementById('sh-in-auth').value.trim();
-      vars.POPUP_BG_RGBA = SuuCore_vv.utils.buildRgbaString(document.getElementById('sh-bg-hex').value, document.getElementById('sh-bg-alpha').value);
+      vars.LAUNCHER_BG_RGBA = Core.utils.buildRgbaString(document.getElementById('sh-bg-hex').value, document.getElementById('sh-bg-alpha').value);
     },
 
     onStart: (vars) => startApp(vars),
@@ -98,20 +97,26 @@
   });
 
   /* =========================================================
-   * 3. GŁÓWNA LOGIKA APLIKACJI
+   * 2. GŁÓWNA LOGIKA APLIKACJI
    * ========================================================= */
   function startApp(vars) {
-    CFG = vars; 
-    
-    // Zawsze odpalamy logikę (aby UI i okienko mogło istnieć, nawet z błędem)
+    CFG = vars;
+
+    const closeBtn = document.getElementById('czat_notatek-close-btn');
+    if (closeBtn) closeBtn.click();
+
     injectStyles();
-    
+
+    if (!CFG.SERVER_TOKEN) {
+        Core.log.fatal("BRAK TOKENU API! Wpisz go w ustawieniach skryptu.");
+    } else {
+        Core.log.info("Token zatwierdzony. Gotowe do działania.");
+    }
+
     if (!isInitialized) {
         setupRouting();
         isInitialized = true;
     }
-    
-    // Odświeżenie obecnej strony
     onRoute();
   }
 
@@ -122,30 +127,30 @@
         style.id = 'sh-notes-dynamic-style';
         document.head.appendChild(style);
     }
+
     style.textContent = `
-      .sh-notes-launcher{position:fixed;right:16px;bottom:16px;z-index:2147483000;background:#2563eb;color:#fff;border:1px solid #1e40af;border-radius:14px;padding:16px 56px;cursor:pointer;font:600 20px/1.2 system-ui,sans-serif;box-shadow:0 6px 28px rgba(0,0,0,.35)}
+      .sh-notes-launcher{position:fixed;z-index:2147483000;background:${CFG.LAUNCHER_BG_RGBA} !important;color:#fff;border:1px solid rgba(0,0,0,0.2);border-radius:14px;padding:16px 56px;cursor:pointer;font:600 20px/1.2 system-ui,sans-serif;box-shadow:0 6px 28px rgba(0,0,0,.35); user-select:none;}
       .sh-notes-launcher .sh-badge{position:absolute;left:-8px;top:-8px;min-width:28px;height:28px;background:#10b981;color:#0b141a;border:2px solid #0b63eb22;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;font:700 14px/1 system-ui,sans-serif;padding:0 8px;box-shadow:0 2px 10px rgba(0,0,0,.35)}
 
-      .sh-notes{position:fixed;right:16px;bottom:88px;z-index:2147483000;width:380px;height:550px;min-width:300px;min-height:260px;max-width:520px;max-height:70vh;resize:both;overflow:hidden;background:${CFG.POPUP_BG_RGBA};color:#eaeaea;border:1px solid #2b2f36;border-radius:14px;display:flex;flex-direction:column;box-shadow:0 10px 40px rgba(0,0,0,.45)}
-      .sh-notes__header{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 12px;border-bottom:1px solid #22262c;background:rgba(0,0,0,0.3);cursor:move;user-select:none;}
-      .sh-notes__title{font-weight:700;font-size:${CFG.TITLE_SIZE_PX}px;opacity:.95;pointer-events:none;}
+      .sh-notes{position:fixed;z-index:2147483000;width:380px;height:550px;min-width:300px;min-height:260px;max-width:520px;max-height:70vh;resize:both;overflow:hidden;background:#0f1115;color:#eaeaea;border:1px solid #2b2f36;border-radius:14px;display:flex;flex-direction:column;box-shadow:0 10px 40px rgba(0,0,0,.45)}
+      .sh-notes__header{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 12px;border-bottom:1px solid #22262c;background:#12141a;}
+      .sh-notes__title{font-weight:700;font-size:${CFG.TITLE_SIZE_PX}px;opacity:.95;}
       .sh-btn{background:#1b1f27;color:#eaeaea;border:1px solid #2c3139;border-radius:8px;height:28px;padding:0 10px;font:500 12px system-ui,sans-serif;cursor:pointer}
       .sh-btn:hover{background:#222733}
       .sh-notes__header .sh-btn{width:${CFG.ICON_BTN_PX}px;height:${CFG.ICON_BTN_PX}px;padding:0;font-size:${Math.round(CFG.ICON_BTN_PX*0.45)}px;display:inline-flex;align-items:center;justify-content:center;border-radius:10px}
 
       .sh-notes__list{flex:1;overflow:auto;padding:10px 10px 4px 10px;display:flex;flex-direction:column;gap:8px}
-      .sh-item{background:rgba(0,0,0,0.2);border:1px solid #242a34;border-radius:10px;padding:8px 10px}
+      .sh-item{background:#141821;border:1px solid #242a34;border-radius:10px;padding:8px 10px}
       .sh-item__meta{display:flex;gap:8px;justify-content:space-between;opacity:.75;font:${CFG.META_SIZE_PX}px system-ui,sans-serif;margin-bottom:4px}
       .sh-item__text{white-space:pre-wrap;word-break:break-word;font:${CFG.NOTE_SIZE_PX}px/1.5 system-ui,sans-serif}
-
       .sh-item--pending{background:rgba(37,99,235,${CFG.PENDING_BG_OPACITY})!important;border-color:#1d4ed8}
       .sh-item--ok{background:rgba(37,99,235,${CFG.OK_BG_OPACITY})!important;border-color:#1d4ed8}
       .sh-item--error{border-color:#b91c1c}
       .sh-ok{margin-left:6px;font-size:12px;color:#7CFC7C}
       .sh-err{color:#ff7373;font-size:12px}
 
-      .sh-notes__composer{border-top:1px solid #22262c;padding:10px;display:flex;flex-direction:column;gap:10px;background:rgba(0,0,0,0.2)}
-      .sh-textarea{width:100%;height:90px;font:${CFG.NOTE_SIZE_PX}px/1.35 system-ui,sans-serif;color:#eaeaea;background:rgba(255,255,255,0.05);border:1px solid #252b37;border-radius:10px;padding:10px 12px;outline:none}
+      .sh-notes__composer{border-top:1px solid #22262c;padding:10px;display:flex;flex-direction:column;gap:10px;background:#101219}
+      .sh-textarea{width:100%;height:90px;font:${CFG.NOTE_SIZE_PX}px/1.35 system-ui,sans-serif;color:#eaeaea;background:#383d61;border:1px solid #252b37;border-radius:10px;padding:10px 12px;outline:none;}
       .sh-textarea:focus{border-color:#33415c}
       .sh-composer__row{display:flex;align-items:center;justify-content:space-between;gap:12px}
       .sh-counter{font:12px system-ui;opacity:.7}
@@ -157,7 +162,89 @@
     `;
   }
 
-  /* ====== STATE & HELPERS ====== */
+  /* =========================================================
+   * 3. PRZESUWANIE SAMEGO PRZYCISKU (LAUNCHERA)
+   * ========================================================= */
+  function makeLauncherDraggable(el) {
+      let isDragging = false, hasMoved = false, startX, startY, initialLeft, initialTop;
+
+      const pos = GM_getValue('SH_LAUNCHER_POS', null);
+      if (pos && pos.left) {
+          el.style.right = 'auto'; el.style.bottom = 'auto';
+          el.style.left = pos.left; el.style.top = pos.top;
+      } else {
+          el.style.right = '16px'; el.style.bottom = '16px';
+      }
+
+      el.addEventListener('mousedown', (e) => {
+          if (e.button !== 0) return; // Tylko lewy przycisk myszy
+          isDragging = true;
+          hasMoved = false;
+          startX = e.clientX; startY = e.clientY;
+
+          const rect = el.getBoundingClientRect();
+          initialLeft = rect.left; initialTop = rect.top;
+
+          el.style.right = 'auto'; el.style.bottom = 'auto';
+          el.style.left = initialLeft + 'px'; el.style.top = initialTop + 'px';
+          el.style.margin = '0';
+          document.body.style.userSelect = 'none';
+      });
+
+      document.addEventListener('mousemove', (e) => {
+          if (!isDragging) return;
+          const dx = e.clientX - startX;
+          const dy = e.clientY - startY;
+
+          // Jeśli przesunięto myszkę o więcej niż 3 piksele, uznajemy to za przeciąganie, a nie kliknięcie
+          if (Math.abs(dx) > 3 || Math.abs(dy) > 3) hasMoved = true;
+
+          if (hasMoved) {
+              el.style.left = (initialLeft + dx) + 'px';
+              el.style.top = (initialTop + dy) + 'px';
+              updatePopupPosition(el); // Aktualizacja okna na żywo podczas przeciągania
+          }
+      });
+
+      document.addEventListener('mouseup', () => {
+          if (isDragging) {
+              isDragging = false;
+              document.body.style.userSelect = '';
+              if (hasMoved) {
+                  // Jeśli użytkownik przeciągnął przycisk - zapisujemy pozycję
+                  GM_setValue('SH_LAUNCHER_POS', { left: el.style.left, top: el.style.top });
+              } else {
+                  // Jeśli użytkownik tylko kliknął (nie przesunął) - otwieramy okno
+                  toggle();
+              }
+          }
+      });
+  }
+
+  // Funkcja, która zawsze trzyma okno popup idealnie nad przyciskiem
+  function updatePopupPosition(launcher) {
+      const popup = qs(".sh-notes");
+      if (!popup) return;
+      const rect = launcher.getBoundingClientRect();
+
+      // Równamy prawą krawędź okna z prawą krawędzią przycisku
+      let pRight = window.innerWidth - rect.right;
+      // Ustawiamy okno dokładnie 10 pikseli nad przyciskiem
+      let pBottom = window.innerHeight - rect.top + 10;
+
+      // Zabezpieczenie przed wyjściem za ekran
+      if (pRight < 0) pRight = 10;
+      if (pBottom < 0) pBottom = 10;
+
+      popup.style.right = pRight + 'px';
+      popup.style.bottom = pBottom + 'px';
+      popup.style.left = 'auto';
+      popup.style.top = 'auto';
+  }
+
+  /* =========================================================
+   * 4. STAN I POMOCNIKI
+   * ========================================================= */
   let currentOrderId = null;
   let currentUser = null;
   const qs = s => document.querySelector(s);
@@ -198,56 +285,15 @@
     return login;
   }
 
-  /* ====== MECHANIZM PRZESUWANIA (DRAG & DROP) ====== */
-  function makeDraggable(el, handle) {
-      let isDragging = false, startX, startY, startLeft, startTop;
-
-      // Przywracanie pozycji z pamięci
-      const pos = GM_getValue('SH_NOTES_POS', null);
-      if (pos) {
-          el.style.right = 'auto'; 
-          el.style.bottom = 'auto';
-          el.style.left = pos.x + 'px';
-          el.style.top = pos.y + 'px';
-      }
-
-      handle.addEventListener('mousedown', (e) => {
-          if(e.target.tagName === 'BUTTON') return; // Nie przesuwaj, gdy klikasz przyciski X i Odśwież
-          isDragging = true;
-          startX = e.clientX;
-          startY = e.clientY;
-          const rect = el.getBoundingClientRect();
-          startLeft = rect.left;
-          startTop = rect.top;
-          el.style.right = 'auto';
-          el.style.bottom = 'auto';
-          document.body.style.userSelect = 'none'; // Zapobiega zaznaczaniu tekstu
-      });
-
-      document.addEventListener('mousemove', (e) => {
-          if (!isDragging) return;
-          el.style.left = (startLeft + (e.clientX - startX)) + 'px';
-          el.style.top = (startTop + (e.clientY - startY)) + 'px';
-      });
-
-      document.addEventListener('mouseup', () => {
-          if (isDragging) {
-              isDragging = false;
-              document.body.style.userSelect = '';
-              const rect = el.getBoundingClientRect();
-              GM_setValue('SH_NOTES_POS', { x: rect.left, y: rect.top }); // Zapisuje nową pozycję na stałe
-          }
-      });
-  }
-
-  /* ====== UI ====== */
+  /* ====== UI BUDOWA ====== */
   function ensureUI(){
     if(!qs(".sh-notes-launcher")){
-      const b = document.createElement("button");
-      b.className = "sh-notes-launcher";
+      const b = document.createElement("div"); // Używamy div zamiast button, by uniknąć problemów z dragowaniem w HTML
+      b.className = "sh-notes-launcher sh-hidden";
       b.innerHTML = `Notatki <span class="sh-badge" id="sh-badge">0</span>`;
-      b.onclick = toggle;
       document.body.appendChild(b);
+      // Podpinamy mechanizm drag & drop do przycisku
+      makeLauncherDraggable(b);
     }
     if(!qs(".sh-notes")){
       const w = document.createElement("div");
@@ -266,9 +312,6 @@
           </div>
         </div>`;
       document.body.appendChild(w);
-      
-      // Podłączenie przesuwania okna
-      makeDraggable(w, qs("#sh-header"));
 
       qs("#sh-close").onclick = () => w.classList.add("sh-hidden");
       qs("#sh-refresh").onclick = () => refresh();
@@ -279,9 +322,14 @@
 
   function toggle(){
     const box = qs(".sh-notes");
-    if(!box) return;
+    const launcher = qs(".sh-notes-launcher");
+    if(!box || !launcher) return;
     box.classList.toggle("sh-hidden");
-    if(!box.classList.contains("sh-hidden")){ refresh(); qs("#sh-ta").focus(); }
+    if(!box.classList.contains("sh-hidden")){
+        updatePopupPosition(launcher); // Zawsze ustawiaj okienko prosto nad przyciskiem
+        refresh();
+        qs("#sh-ta").focus();
+    }
   }
 
   function counter(){
@@ -298,22 +346,20 @@
     b.style.background = Number.isFinite(n) ? "#10b981" : "#ef4444";
   }
 
+  /* ====== LOGIKA POBIERANIA (Z OBSŁUGĄ BRAKU TOKENU) ====== */
   async function refresh(){
     if(!currentOrderId) return;
     qs("#sh-ord").textContent = currentOrderId;
     const list = qs("#sh-list");
-    list.innerHTML = `<div style="opacity:.7;font:12px system-ui;">Ładowanie…</div>`;
-    
-    // Sprawdzanie tokenu!
+
+    // Brak tokenu = Dyskretny komunikat tylko wewnątrz otwartego okna, baner jest już na górze
     if (!CFG.SERVER_TOKEN) {
-        badge(NaN); // Wrzuca czerwony wykrzyknik na ikonkę
-        list.innerHTML = `
-            <div style="background: rgba(220, 38, 38, 0.2); border: 1px solid #dc2626; color: #fca5a5; padding: 15px; border-radius: 8px; font-weight: bold; text-align: center;">
-                🚨 BRAK TOKENU API!<br><br>
-                <span style="font-weight: normal; font-size: 12px; color: #fff;">Otwórz "⚙️ Ustawienia" (przycisk w lewym dolnym rogu) i wpisz klucz autoryzacji.</span>
-            </div>`;
+        badge(NaN);
+        list.innerHTML = `<div class="sh-err" style="text-align:center; padding:10px;">Brak tokenu API. Ustaw go w opcjach skryptu.</div>`;
         return;
     }
+
+    list.innerHTML = `<div style="opacity:.7;font:12px system-ui;">Ładowanie…</div>`;
 
     try {
       const {items} = await apiGet(currentOrderId);
@@ -321,7 +367,7 @@
       badge(items.length);
     } catch(e) {
       badge(NaN);
-      SuuCore_vv.log.error(`Błąd pobierania notatek: ${e.message}`);
+      Core.log.error(`Błąd pobierania: ${e.message}`);
       list.innerHTML = `<div class="sh-err">Błąd pobierania: ${e.message}</div>`;
     }
   }
@@ -330,7 +376,7 @@
     const list = qs("#sh-list");
     list.innerHTML = "";
     if(!items?.length){
-      list.innerHTML = `<div style="opacity:.7;font:12px system-ui;">Brak notatek dla tego zamówienia.</div>`;
+      list.innerHTML = `<div style="opacity:.7;font:12px system-ui;">Brak notatek.</div>`;
       return;
     }
     for(const n of items){
@@ -342,9 +388,10 @@
     list.scrollTop = list.scrollHeight;
   }
 
+  /* ====== LOGIKA WYSYŁANIA ====== */
   async function send(){
     if (!CFG.SERVER_TOKEN) {
-        alert("Brak tokenu! Nie można wysłać notatki.");
+        Core.log.error("Próba wysłania bez tokenu API.");
         return;
     }
 
@@ -355,7 +402,7 @@
 
     let user;
     try { user = await fetchUser(); }
-    catch(e) { SuuCore_vv.log.error("Nie udało się pobrać loginu.", e); return; }
+    catch(e) { Core.log.error("Błąd loginu.", e); return; }
 
     const list = qs("#sh-list");
     const pending = document.createElement("div");
@@ -371,11 +418,9 @@
         pending.classList.replace("sh-item--pending", "sh-item--ok");
         const ok = pending.querySelector(".sh-ok"); if(ok) ok.textContent="✔";
         await refresh();
-      } else {
-        throw new Error("save_failed");
-      }
+      } else { throw new Error("save_failed"); }
     } catch(e) {
-      SuuCore_vv.log.error("Błąd podczas wysyłania notatki:", e.message);
+      Core.log.error("Błąd wysyłki:", e.message);
       pending.classList.replace("sh-item--pending", "sh-item--error");
       const ok = pending.querySelector(".sh-ok"); if(ok) ok.textContent="×";
       const err = document.createElement("div"); err.className="sh-err"; err.textContent=`Błąd zapisu: ${e.message}`;
@@ -383,7 +428,7 @@
     }
   }
 
-  /* ====== SPA routing ====== */
+  /* ====== SPA ROUTING ====== */
   function setupRouting() {
       function onRoute(){
         if(!isOrderPage()){
@@ -399,7 +444,11 @@
           qs(".sh-notes-launcher")?.classList.remove("sh-hidden");
           if(qs("#sh-ord")) qs("#sh-ord").textContent = currentOrderId;
 
-          refresh(); // To samo wywoła badge() i ew. błąd braku tokenu
+          // Aktualizuj pozycję okna na wypadek, gdyby przycisk zmienił miejsce pomiędzy przeładowaniami
+          const launcher = qs(".sh-notes-launcher");
+          if (launcher) updatePopupPosition(launcher);
+
+          refresh();
         }
       }
 
@@ -412,8 +461,6 @@
       window._suuRouteCheck = onRoute;
   }
 
-  function onRoute() {
-      if(typeof window._suuRouteCheck === 'function') window._suuRouteCheck();
-  }
+  function onRoute() { if(typeof window._suuRouteCheck === 'function') window._suuRouteCheck(); }
 
 })();
