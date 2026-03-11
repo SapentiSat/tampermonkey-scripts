@@ -9,6 +9,8 @@
 // @noframes
 // @icon         https://suuhouse.pl/favicon.ico
 // @require      https://gist.githubusercontent.com/SapentiSat/14e92c1c9fffde5af55a70f4da77ad1d/raw/93190fe4f865abebdf548c1fea3d5984f05fe91a/SuuCore_MenuLogsWygoda_vv.js
+// @updateURL    https://raw.githubusercontent.com/SapentiSat/tampermonkey-scripts/main/highlight-note.user.js
+// @downloadURL  https://raw.githubusercontent.com/SapentiSat/tampermonkey-scripts/main/highlight-note.user.js
 // @grant        GM_getValue
 // @grant        GM_setValue
 // @grant        GM_registerMenuCommand
