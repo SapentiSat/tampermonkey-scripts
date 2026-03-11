@@ -16,7 +16,7 @@
 // @homepageURL  https://github.com/SapentiSat/tampermonkey-scripts
 // @updateURL    https://raw.githubusercontent.com/SapentiSat/tampermonkey-scripts/main/suuhouse-oms-notes.user.js
 // @downloadURL  https://raw.githubusercontent.com/SapentiSat/tampermonkey-scripts/main/suuhouse-oms-notes.user.js
-// @require      https://gist.githubusercontent.com/TUTAJ_WKLEJ_LINK_DO_SWOJEJ_BIBLIOTEKI.js
+// @require      https://gist.githubusercontent.com/SapentiSat/14e92c1c9fffde5af55a70f4da77ad1d/raw/93190fe4f865abebdf548c1fea3d5984f05fe91a/SuuCore_MenuLogsWygoda_vv.js
 // @connect      sellrocket-notes.valiantsin12.workers.dev
 // ==/UserScript==
 
