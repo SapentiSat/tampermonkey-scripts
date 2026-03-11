@@ -1,330 +1,151 @@
 // ==UserScript==
-// @name         Podświetl sekcję „Notatka wewnętrzna”
+// @name         Podświetl sekcję „do wyboru”
 // @namespace    suuhouse.tools
 // @author       valiantsin12@gmail.com
-// @version      2.1
-// @description  Podświetla sekcję „Notatka wewnętrzna”
+// @version      7.0
+// @description  Czysty skrypt logiczny wykorzystujący SuuCore_vv
 // @match        https://suuhouse.enterprise.sellrocket.pl/unified-orders/*
 // @run-at       document-idle
 // @noframes
 // @icon         https://suuhouse.pl/favicon.ico
-// @homepageURL  https://github.com/SapentiSat/tampermonkey-scripts
-// @updateURL  https://raw.githubusercontent.com/SapentiSat/tampermonkey-scripts/main/highlight-note.user.js
-// @downloadURL  https://raw.githubusercontent.com/SapentiSat/tampermonkey-scripts/main/highlight-note.user.js
+// @require      https://gist.githubusercontent.com/SapentiSat/14e92c1c9fffde5af55a70f4da77ad1d/raw/93190fe4f865abebdf548c1fea3d5984f05fe91a/SuuCore_MenuLogsWygoda_vv.js
 // @grant        GM_getValue
 // @grant        GM_setValue
+// @grant        GM_registerMenuCommand
+// @grant        GM_notification
 // ==/UserScript==
-
 
 (function () {
   'use strict';
 
-  /* =========================================================
-   *  BLOK 1 — STORAGE + CONFIG
-   *  Kolejność kluczy w Pamięci:
-   *    - CONFIG
-   *    - LOG_CONFIG
-   *    - LOGS
-   * ========================================================= */
+  // 1. Zdefiniuj strukturę formularza dla TEGO konkretnego skryptu
+  // (Używamy funkcji utils.createTooltip dostarczonej przez rdzeń)
+  const tt = SuuCore_vv.utils.createTooltip;
+  const SETTINGS_HTML = `
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+      <div><label style="font-size: 12px; font-weight: bold;">Włącz podświetlenie</label>
+           <select id="suu-in-enable" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; margin-top: 4px;"><option value="true">Tak</option><option value="false">Nie</option></select></div>
+      <div><label style="font-size: 12px; font-weight: bold;">Szukana etykieta</label>
+           <input type="text" id="suu-in-label" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; margin-top: 4px;"></div>
 
-  const K_CFG         = 'CONFIG';
-  const K_LOG_CONFIG  = 'LOG_CONFIG';
-  const K_LOGS        = 'LOGS'; // tablica wpisów loggera
-
-  const DEFAULTS_CONFIG = {
-    version: 1,
-    vars: {
-      BG_RGBA: 'rgba(255, 0, 0, 0.12)',
-      NOTE_LABEL: 'Notatka wewnętrzna:',
-      ENABLE_HIGHLIGHT: true,
-      // --------wymagane ---------
-      OUTLINE_RGBA: "rgba(255, 0, 0, 0.9)",
-      BORDER_RADIUS_PX: 10,
-      TRANSITION_MS: 120
-    }
-  };
-
-  const DEFAULTS_LOG_CONFIG = {
-    version: 1,
-    vars: {
-      TYPE:  'error',  // 'debug' | 'info' | 'warn' | 'error'  (zostawiamy 'error')
-      LIMIT: 200       // ile ostatnich wpisów trzymać
-    }
-  };
-
-  const clone = (o) => JSON.parse(JSON.stringify(o));
-
-  function loadAndMerge(key, defaultsObj) {
-    let saved;
-    try { saved = GM_getValue(key, null); } catch { saved = null; }
-    if (!saved || typeof saved !== 'object') {
-      const fresh = clone(defaultsObj);
-      try { GM_setValue(key, fresh); } catch {}
-      return fresh;
-    }
-    const merged = clone(saved);
-    if (!merged.vars || typeof merged.vars !== 'object') merged.vars = {};
-    for (const [k, defVal] of Object.entries(defaultsObj.vars)) {
-      if (!Object.prototype.hasOwnProperty.call(merged.vars, k)) {
-        merged.vars[k] = defVal; // dodaj brakujące — nie nadpisuj istniejących
-      }
-    }
-    merged.version = defaultsObj.version;
-    try { GM_setValue(key, merged); } catch {}
-    return merged;
-  }
-
-  const CFG        = loadAndMerge(K_CFG,        DEFAULTS_CONFIG);
-  const LOG_CONFIG = loadAndMerge(K_LOG_CONFIG, DEFAULTS_LOG_CONFIG);
-
-  const getCfg  = (k) => (CFG.vars && Object.prototype.hasOwnProperty.call(CFG.vars, k)) ? CFG.vars[k] : undefined;
-  const getLogO = (k) => (LOG_CONFIG.vars && Object.prototype.hasOwnProperty.call(LOG_CONFIG.vars, k)) ? LOG_CONFIG.vars[k] : undefined;
-
-  /* =========================================================
-   *  BLOK 2 — MINIMALNY LOGGER (tylko błędy przy TYPE:error)
-   * ========================================================= */
-
-  const LEVELS = { debug: 10, info: 20, warn: 30, error: 40 };
-  const levelName = String(getLogO('TYPE') ?? 'error').toLowerCase();
-  const LEVEL_NOW = LEVELS[levelName] ?? LEVELS.error;
-  const LOG_LIMIT = Math.max(10, Number(getLogO('LIMIT') ?? 200) || 200);
-
-  const safeStr = (v) => {
-    try { return typeof v === 'string' ? v : JSON.stringify(v); }
-    catch { try { return String(v); } catch { return '[Unserializable]'; } }
-  };
-
-  function logPersist(type, ...args) {
-    try {
-      const lvl = LEVELS[type] ?? LEVELS.info;
-      if (lvl < LEVEL_NOW) return; // przy TYPE:error przejdą tylko 'error'
-
-      // do konsoli
-      const fn = console[type] || console.log;
-      fn.call(console, '[HL]', ...args);
-
-      // do bufora w Pamięci
-      const arr = (GM_getValue(K_LOGS, []) || []);
-      arr.push({ t: new Date().toISOString(), type, info: args.map(safeStr).join(' ') });
-      if (arr.length > LOG_LIMIT) arr.splice(0, arr.length - LOG_LIMIT);
-      GM_setValue(K_LOGS, arr);
-    } catch {
-      // logowanie nigdy nie może zabić skryptu
-    }
-  }
-
-  const log = {
-    error: (...a) => logPersist('error', ...a),
-    warn : (...a) => logPersist('warn',  ...a),
-    info : (...a) => logPersist('info',  ...a),
-    debug: (...a) => logPersist('debug', ...a),
-  };
-
-  // globalne przechwytywanie błędów — KLUCZOWE
-  window.addEventListener('error', (e) => {
-    log.error('Uncaught Error:', e.message, `${e.filename}:${e.lineno}:${e.colno}`);
-  });
-  window.addEventListener('unhandledrejection', (e) => {
-    log.error('Unhandled Promise rejection:', safeStr(e.reason));
-  });
-
-  // pomocnicze komendy w DevTools
-  window.SUU_LOGS_DUMP  = () => (GM_getValue(K_LOGS, []) || []);
-  window.SUU_LOGS_CLEAR = () => { try { GM_setValue(K_LOGS, []); } catch {} };
-
-  /* =========================================================
-   *  BLOK 3 — WYMAGANE ZMIENNE + BANER
-   * ========================================================= */
-
-  const REQUIRED_VARS = ['OUTLINE_RGBA', 'BORDER_RADIUS_PX', 'TRANSITION_MS'];
-
-  const SCRIPT_NAME =
-    (typeof GM_info === 'object' && GM_info.script && GM_info.script.name)
-      ? GM_info.script.name
-      : 'Userscript';
-
-  function findMissingRequiredVars() {
-    const out = [];
-    for (const k of REQUIRED_VARS) {
-      const v = getCfg(k);
-      const empty = (v === null || v === undefined || (typeof v === 'string' && v.trim() === ''));
-      if (empty) out.push(k);
-    }
-    return out;
-  }
-
-  function showConfigErrorBanner(missingKeys) {
-    const count_var_limit = 3;
-    const total = missingKeys.length;
-    const firstN = missingKeys.slice(0, count_var_limit);
-    const rest   = missingKeys.slice(count_var_limit);
-
-    const root = document.createElement('div');
-    Object.assign(root.style, {
-      position: 'fixed',
-      zIndex: '2147483647',
-      right: '14px',
-      bottom: '16px',
-      width: '400px',
-      height: '220px',
-      background: '#fff',
-      border: '1px solid #ef4444',
-      boxShadow: '0 6px 18px rgba(0,0,0,0.12)',
-      borderRadius: '12px',
-      fontFamily: 'system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif',
-      fontSize: '12px',
-      color: '#111',
-      padding: '10px',
-      overflow: 'auto',
-      overscrollBehavior: 'contain'
-    });
-
-    root.innerHTML = `
-      <div style="display:flex; align-items:flex-start; gap:10px;">
-        <div style="flex:1; min-width:0;">
-          <div style="font-weight:600; color:#991b1b; margin-bottom:6px;">
-            Brak wymaganych zmiennych w pamięci skryptu:<br>
-            <span style="color:#065f46; font-weight:700; font-size:14px;">${SCRIPT_NAME}</span>
-          </div>
-
-          <div style="display:flex; align-items:center; gap:6px; margin-bottom:8px;">
-            <div>Uzupełnij w: <b>Pamięć</b> → <code>${K_CFG}.vars</code></div>
-            <span style="background:#fee2e2; color:#991b1b; border:1px solid #fecaca; padding:2px 6px; border-radius:999px; font-size:12px;">
-              brakuje: ${total}
-            </span>
-          </div>
-
-          <ul style="margin:0 0 6px 18px; padding:0; list-style:disc;">
-            ${firstN.map(k => `<li><code>${k}</code></li>`).join('')}
-          </ul>
-
-          ${rest.length ? `
-            <div style="margin:2px 0 6px 0;">
-              <button type="button" data-suu-toggle
-                style="border:none; background:#ecfeff; color:#075985; padding:6px 10px; border-radius:8px; cursor:pointer; font-size:12px;">
-                ▼ Pokaż pozostałe (${rest.length})
-              </button>
-            </div>
-            <div data-suu-more style="display:none; border-top:1px dashed #e5e7eb; padding-top:6px; max-height:90px; overflow:auto; font-size:12px;">
-              <ul style="margin:0 0 8px 18px; padding:0; list-style:disc;">
-                ${rest.map(k => `<li><code>${k}</code></li>`).join('')}
-              </ul>
-            </div>
-          ` : ''}
-
-          <strong style="opacity:.95; font-size:14px; display:block; margin-top:6px;">Po uzupełnieniu odśwież stronę.</strong>
-        </div>
-
-        <button type="button" aria-label="Zamknij"
-          style="border:none; background:#fee2e2; color:#991b1b; padding:6px 10px; border-radius:8px; cursor:pointer; align-self:flex-start;">
-          ✕
-        </button>
+      <div><label style="font-size: 12px; font-weight: bold;">Kolor tła ${tt('Kolor wypełnienia. Reguluj suwakiem przezroczystość.')}</label>
+           <div class="suu-color-row">
+             <input type="color" id="suu-bg-hex" class="suu-color-picker">
+             <input type="range" id="suu-bg-alpha" class="suu-alpha-slider" min="0" max="1" step="0.01">
+             <span id="suu-bg-val" style="font-size: 11px; width: 30px; text-align:right;"></span>
+           </div>
       </div>
-    `;
 
-    root.querySelector('button[aria-label="Zamknij"]')?.addEventListener('click', () => root.remove());
-    const toggleBtn = root.querySelector('button[data-suu-toggle]');
-    const moreBox   = root.querySelector('div[data-suu-more]');
-    if (toggleBtn && moreBox) {
-      let opened = false;
-      toggleBtn.addEventListener('click', () => {
-        opened = !opened;
-        moreBox.style.display = opened ? 'block' : 'none';
-        toggleBtn.textContent = opened ? '▲ Ukryj pozostałe' : `▼ Pokaż pozostałe (${rest.length})`;
-      });
-    }
+      <div><label style="font-size: 12px; font-weight: bold;">Kolor ramki ${tt('Kolor obramowania. Reguluj suwakiem.')}</label>
+           <div class="suu-color-row">
+             <input type="color" id="suu-out-hex" class="suu-color-picker">
+             <input type="range" id="suu-out-alpha" class="suu-alpha-slider" min="0" max="1" step="0.01">
+             <span id="suu-out-val" style="font-size: 11px; width: 30px; text-align:right;"></span>
+           </div>
+      </div>
 
-    // wpinamy do BODY, fallback do alert jeśli CSP zetnie styl
-    const attach = () => {
-      (document.body || document.documentElement).appendChild(root);
-      setTimeout(() => {
-        if (!root.isConnected || root.offsetHeight === 0) {
-          alert('Brak wymaganych zmiennych: ' + missingKeys.join(', ') + '\nUzupełnij w: Pamięć → CONFIG.vars');
-        }
-      }, 50);
-    };
-    if (document.body) attach();
-    else {
-      const ro = new MutationObserver(() => {
-        if (document.body) { ro.disconnect(); attach(); }
-      });
-      ro.observe(document.documentElement, { childList: true, subtree: true });
-    }
-  }
+      <div><label style="font-size: 12px; font-weight: bold;">Zaokrąglenie (px)</label><input type="number" id="suu-in-radius" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; margin-top: 4px;"></div>
+      <div><label style="font-size: 12px; font-weight: bold;">Czas animacji (ms)</label><input type="number" id="suu-in-trans" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; margin-top: 4px;"></div>
+    </div>
+  `;
 
-  const missing = findMissingRequiredVars();
-  if (missing.length > 0) {
-    log.error('Missing required vars:', missing);
-    showConfigErrorBanner(missing);
-    return; // STOP — bez kompletu zmiennych nie uruchamiamy logiki
-  }
+  // 2. LOGIKA BIZNESOWA: Inicjalizujemy potężny rdzeń!
+  SuuCore_vv.init({
+      scriptName: "Podświetlanie sekcji",
+      defaultVars: {
+          BG_RGBA: 'rgba(255, 0, 0, 0.12)',
+          NOTE_LABEL: 'Notatka wewnętrzna:',
+          ENABLE_HIGHLIGHT: true,
+          OUTLINE_RGBA: 'rgba(255, 0, 0, 0.9)',
+          BORDER_RADIUS_PX: 10,
+          TRANSITION_MS: 120
+      },
+      settingsHTML: SETTINGS_HTML,
 
-  /* =========================================================
-   *  BLOK 4 — LOGIKA SKRYPTU
-   * ========================================================= */
+      // Co zrobić, gdy użytkownik otworzy okno ustawień (ładowanie danych z pamięci do inputów)
+      onLoadUI: (vars) => {
+          document.getElementById('suu-in-enable').value = vars.ENABLE_HIGHLIGHT;
+          document.getElementById('suu-in-label').value = vars.NOTE_LABEL;
+          document.getElementById('suu-in-radius').value = vars.BORDER_RADIUS_PX;
+          document.getElementById('suu-in-trans').value = vars.TRANSITION_MS;
 
-  const BG        = getCfg('BG_RGBA') ?? '';
-  const LABEL     = String(getCfg('NOTE_LABEL') ?? 'Notatka wewnętrzna:');
-  const ENABLE    = Boolean(getCfg('ENABLE_HIGHLIGHT') ?? true);
+          const bg = SuuCore_vv.utils.parseRgbaString(vars.BG_RGBA);
+          document.getElementById('suu-bg-hex').value = bg.hex;
+          document.getElementById('suu-bg-alpha').value = bg.a;
+          document.getElementById('suu-bg-val').textContent = Math.round(bg.a * 100) + '%';
 
-  const OUTLINE   = String(getCfg('OUTLINE_RGBA'));
-  const RADIUS    = Number(getCfg('BORDER_RADIUS_PX'));
-  const TRANS_MS  = Number(getCfg('TRANSITION_MS'));
+          const out = SuuCore_vv.utils.parseRgbaString(vars.OUTLINE_RGBA);
+          document.getElementById('suu-out-hex').value = out.hex;
+          document.getElementById('suu-out-alpha').value = out.a;
+          document.getElementById('suu-out-val').textContent = Math.round(out.a * 100) + '%';
 
-  function injectStyles() {
-    try {
-      const style = document.createElement('style');
-      const bgRule = BG ? `background: ${BG} !important;` : '';
-      style.textContent = `
-        .suu-note-highlighted {
-          ${bgRule}
-          outline: 2px solid ${OUTLINE};
-          border-radius: ${Number.isFinite(RADIUS) ? RADIUS : 8}px;
-          transition:
-            background ${Number.isFinite(TRANS_MS) ? TRANS_MS : 120}ms ease-in-out,
-            outline ${Number.isFinite(TRANS_MS) ? TRANS_MS : 120}ms ease-in-out;
-        }
-      `;
-      document.documentElement.appendChild(style);
-    } catch (e) {
-      log.error('Failed to inject styles:', e && e.message ? e.message : e);
-    }
-  }
+          // Aktualizacja % na żywo przy ruszaniu suwakiem
+          document.getElementById('suu-bg-alpha').oninput = (e) => document.getElementById('suu-bg-val').textContent = Math.round(e.target.value * 100) + '%';
+          document.getElementById('suu-out-alpha').oninput = (e) => document.getElementById('suu-out-val').textContent = Math.round(e.target.value * 100) + '%';
+      },
 
-  function highlightNoteRow() {
-    try {
-      if (!ENABLE) return false;
-      const spans = document.querySelectorAll('span');
-      let changed = false;
-      for (const sp of spans) {
-        const txt = (sp.textContent || '').trim();
-        if (txt === LABEL) {
-          const row = sp.closest('.rjsf-form-row');
-          if (row && !row.classList.contains('suu-note-highlighted')) {
-            row.classList.add('suu-note-highlighted');
-            changed = true;
-          }
-        }
+      // Co zrobić, gdy użytkownik kliknie "Zapisz" (zbieranie danych z inputów)
+      onSaveUI: (vars) => {
+          vars.ENABLE_HIGHLIGHT = document.getElementById('suu-in-enable').value === 'true';
+          vars.NOTE_LABEL = document.getElementById('suu-in-label').value;
+          vars.BORDER_RADIUS_PX = Number(document.getElementById('suu-in-radius').value);
+          vars.TRANSITION_MS = Number(document.getElementById('suu-in-trans').value);
+          vars.BG_RGBA = SuuCore_vv.utils.buildRgbaString(document.getElementById('suu-bg-hex').value, document.getElementById('suu-bg-alpha').value);
+          vars.OUTLINE_RGBA = SuuCore_vv.utils.buildRgbaString(document.getElementById('suu-out-hex').value, document.getElementById('suu-out-alpha').value);
+      },
+
+      // Funkcja wywoływana przy starcie skryptu oraz natychmiast po zapisaniu nowych ustawień
+      onStart: (vars) => { startHighlighting(vars); },
+      onApply: (vars) => { startHighlighting(vars); }
+  });
+
+  // =========================================================
+  // 3. WŁAŚCIWA LOGIKA SKRYPTU (To co ten skrypt w ogóle robi)
+  // =========================================================
+
+  function startHighlighting(vars) {
+      if (!vars.OUTLINE_RGBA || !vars.BG_RGBA || !vars.NOTE_LABEL) {
+          SuuCore_vv.log.fatal("Brakuje wymaganych kolorów w ustawieniach skryptu!");
+          return;
       }
-      return changed;
-    } catch (e) {
-      log.error('highlightNoteRow failed:', e && e.message ? e.message : e);
-      return false;
-    }
+
+      // Wstrzyknięcie / Aktualizacja CSS
+      let style = document.getElementById('suu-highlight-style');
+      if (!style) {
+          style = document.createElement('style'); style.id = 'suu-highlight-style';
+          document.documentElement.appendChild(style);
+      }
+      style.textContent = `
+        .suu-note-highlighted { background: ${vars.BG_RGBA} !important; outline: 2px solid ${vars.OUTLINE_RGBA}; border-radius: ${vars.BORDER_RADIUS_PX}px; transition: background ${vars.TRANSITION_MS}ms ease-in-out, outline ${vars.TRANSITION_MS}ms ease-in-out; }
+      `;
+
+      // Logika wyszukiwania
+      function highlightNoteRow() {
+          if (!vars.ENABLE_HIGHLIGHT) {
+              document.querySelectorAll('.suu-note-highlighted').forEach(el => el.classList.remove('suu-note-highlighted'));
+              return false;
+          }
+          let changed = false;
+          document.querySelectorAll('span').forEach(sp => {
+              if ((sp.textContent || '').trim() === vars.NOTE_LABEL) {
+                  const row = sp.closest('.rjsf-form-row');
+                  if (row && !row.classList.contains('suu-note-highlighted')) {
+                      row.classList.add('suu-note-highlighted'); changed = true; SuuCore_vv.log.info("Znalazłem i podświetliłem notatkę.");
+                  }
+              }
+          });
+          return changed;
+      }
+
+      // Pętle śledzące
+      let tries = 0;
+      const int = setInterval(() => { if (highlightNoteRow() || ++tries > 60) clearInterval(int); }, 300);
+
+      // Żeby MutationObserver nie tworzył się w nieskończoność przy każdym kliknięciu "Zapisz", zabezpieczamy go
+      if (!window.suuObserverAttached) {
+          new MutationObserver(() => highlightNoteRow()).observe(document.documentElement, { childList: true, subtree: true });
+          window.suuObserverAttached = true;
+      }
   }
 
-  // start
-  injectStyles();
-
-  let tries = 0;
-  try {
-    const int = setInterval(() => {
-      if (highlightNoteRow() || ++tries > 60) clearInterval(int);
-    }, 300);
-
-    const mo = new MutationObserver(() => highlightNoteRow());
-    mo.observe(document.documentElement, { childList: true, subtree: true });
-  } catch (e) {
-    log.error('Init flow failed:', e && e.message ? e.message : e);
-  }
 })();
